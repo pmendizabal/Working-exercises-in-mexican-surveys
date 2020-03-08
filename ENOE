@@ -1,0 +1,144 @@
+paquetes <-c("foreign","tidyverse", "sjlabelled", "stargazer", "sjPlot", "devtools","data.table","questionr","survey","base","car")
+
+nuevos.paquetes <- paquetes[!(paquetes %in% installed.packages()[,"Package"])]
+if(length(nuevos.paquetes)) install.packages(nuevos.paquetes)
+
+#todas las librerias necesarias 
+library(data.table)
+library(foreign)
+library(devtools)
+library(questionr)
+library(survey)
+library(base)
+library(dplyr)
+
+#Abrimos el archivo de la enoe, la tabla de sociodemografico
+sdemt419 <-read.dbf("SDEMT419.dbf")
+
+#Esto es de dplyr
+
+glimpse(sdemt419) #nos da el overview de la tabla
+class(sdemt419) #Tipo de los datos
+names(sdemt419) #nombres de las columnas o vectores
+
+#Vemos un vector 
+wtd.table(sdemt419$POS_OCU)
+wtd.table(sdemt419$POS_OCU,na.show = TRUE) #Con esto veo los NA
+
+wtd.table(sdemt419$POS_OCU,weights=sdemt419$FAC,na.show = TRUE) #Esto con factor de expansion
+?wtd.table
+
+var <- c("SEX", "EDA", "CLASE2", "CS_P13_1", "E_CON", "POS_OCU", "RAMA", "C_OCU11C", "INGOCUP",
+         "HRSOCUP", "CS_P17", "TUE2", "FAC", "ENT")
+
+MKT_data <- sdemt419[,var]
+
+names(MKT_data)
+
+#Reclasificamos una variable
+
+attach(MKT_data)
+MKT_data$EDAD11[as.numeric(EDA) >= 0 & as.numeric(EDA)<=15] <- 1
+MKT_data$EDAD11[as.numeric(EDA) >= 16 & as.numeric(EDA)<=20] <- 2
+MKT_data$EDAD11[as.numeric(EDA) >= 21 & as.numeric(EDA)<=30] <- 3
+MKT_data$EDAD11[as.numeric(EDA) >= 31 & as.numeric(EDA)<=40] <- 4
+MKT_data$EDAD11[as.numeric(EDA) >= 41 & as.numeric(EDA)<=50] <- 5
+MKT_data$EDAD11[as.numeric(EDA) >= 51 ] <- 6
+detach(MKT_data) 
+
+#Creamos otro DB para tener la poblacion objetivo 
+
+MKT_only_income <- MKT_data[which(MKT_data$CLASE2==1 & MKT_data$ENT == "09" & MKT_data$INGOCUP > 10000 
+                                  & MKT_data$EDAD11 != 1), ]
+
+names(MKT_only_income)
+
+wtd.table(MKT_only_income$CLASE2, weights = MKT_only_income$FAC, na.show = TRUE)
+
+#TODAS LA TABLAS DE DOBLE ENTRADA
+
+sex_studies <- wtd.table(MKT_only_income$SEX,MKT_only_income$CS_P13_1, weights = MKT_only_income$FAC, na.show = TRUE)
+
+write.csv(sex_studies,"C:/Users/Porfirio/Documents/Proyectos con R/ENOE/sex_studies.csv", row.names = TRUE)
+
+-----------------------------------------------------------------------------------------------------------------
+
+sex_hrs <- wtd.table(MKT_only_income$SEX,MKT_only_income$CS_P17, weights = MKT_only_income$FAC, na.show = TRUE)
+
+write.csv(sex_hrs,"C:/Users/Porfirio/Documents/Proyectos con R/ENOE/sex_hrs.csv", row.names = TRUE)
+
+
+-----------------------------------------------------------------------------------------------------------------
+  
+sex_POS_OCU <- wtd.table(MKT_only_income$SEX,MKT_only_income$POS_OCU, weights = MKT_only_income$FAC, na.show = TRUE)
+
+write.csv(sex_POS_OCU,"C:/Users/Porfirio/Documents/Proyectos con R/ENOE/sex_POS_OCU.csv", row.names = TRUE)
+
+
+-----------------------------------------------------------------------------------------------------------------
+  
+sex_rama <- wtd.table(MKT_only_income$SEX,MKT_only_income$RAMA, weights = MKT_only_income$FAC, na.show = TRUE)
+
+write.csv(sex_rama,"C:/Users/Porfirio/Documents/Proyectos con R/ENOE/sex_rama.csv", row.names = TRUE)
+
+
+-----------------------------------------------------------------------------------------------------------------
+  
+sex_con_ocu <- wtd.table(MKT_only_income$SEX,MKT_only_income$C_OCU11C, weights = MKT_only_income$FAC, na.show = TRUE)
+
+write.csv(sex_con_ocu,"C:/Users/Porfirio/Documents/Proyectos con R/ENOE/sex_con_ocu.csv", row.names = TRUE)
+
+
+-----------------------------------------------------------------------------------------------------------------
+  
+sex_e_con <- wtd.table(MKT_only_income$SEX,MKT_only_income$E_CON, weights = MKT_only_income$FAC, na.show = TRUE)
+
+write.csv(sex_e_con,"C:/Users/Porfirio/Documents/Proyectos con R/ENOE/sex_e_con.csv", row.names = TRUE)
+
+
+-----------------------------------------------------------------------------------------------------------------
+  
+pos_edad <- wtd.table(MKT_only_income$POS_OCU,MKT_only_income$EDAD11, weights = MKT_only_income$FAC, na.show = TRUE)
+
+write.csv(pos_edad,"C:/Users/Porfirio/Documents/Proyectos con R/ENOE/pos_edad.csv", row.names = TRUE)
+
+#Creamos otra columna con clasificacion de ingresos 
+
+attach(MKT_only_income)
+MKT_only_income$monthly_income[INGOCUP >= 10000 & INGOCUP <= 20000] <- 1
+MKT_only_income$monthly_income[INGOCUP > 20000 & INGOCUP <= 30000] <- 2
+MKT_only_income$monthly_income[INGOCUP > 30000 & INGOCUP <= 40000] <- 3
+MKT_only_income$monthly_income[INGOCUP > 40000 ] <- 4
+detach(MKT_only_income)
+
+inc_ocu <- wtd.table(MKT_only_income$SEX,MKT_only_income$monthly_income, weights = MKT_only_income$FAC, na.show = TRUE)
+inc_ocu
+
+inc_ocu1 <- cross.multi.table(MKT_only_income[,c("EDAD11","monthly_income")], MKT_only_income$C_OCU11C, weights = MKT_only_income$FAC)
+write.csv(inc_ocu1,"C:/Users/Porfirio/Documents/Proyectos con R/ENOE/inc_ocu1.csv", row.names = TRUE)
+
+
+
+attach(MKT_only_income)
+MKT_only_income$monthly_income[INGOCUP >= 10000 & INGOCUP <= 20000] <- 1
+MKT_only_income$monthly_income[INGOCUP >20000 & INGOCUP <= 30000] <- 2
+MKT_only_income$monthly_income[INGOCUP >30000 & INGOCUP <= 40000] <- 3
+MKT_only_income$monthly_income[INGOCUP >= 18001 & INGOCUP <= 20000] <- 4
+MKT_only_income$monthly_income[INGOCUP >= 20001 & INGOCUP <= 25000] <- 5
+MKT_only_income$monthly_income[INGOCUP >= 25001 & INGOCUP <= 29999] <- 6
+MKT_only_income$monthly_income[INGOCUP >= 30000 ] <- 7
+detach(MKT_only_income) 
+
+
+#Ingresos por sexo 
+
+inc_sex <- wtd.table(MKT_only_income$SEX,MKT_only_income$monthly_income, weights = MKT_only_income$FAC, na.show = TRUE)
+
+write.csv(inc_sex,"C:/Users/Porfirio/Documents/Proyectos con R/ENOE/inc_sex.csv", row.names = TRUE)
+
+#ocupacion con edades
+
+ocu_edades <- wtd.table(MKT_only_income$EDAD11,MKT_only_income$C_OCU11C, weights = MKT_only_income$FAC, na.show = TRUE)
+
+write.csv(ocu_edades,"C:/Users/Porfirio/Documents/Proyectos con R/ENOE/ocu_edades.csv", row.names = TRUE)
+
